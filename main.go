@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"net/http"
 	"os"
 	"strings"
@@ -69,11 +68,11 @@ type hevyWebhookPayload struct {
 }
 
 type hevyWorkout struct {
-	ID          string        `json:"id"`
-	Title       string        `json:"title"`
-	Description string        `json:"description"`
-	StartTime   string        `json:"start_time"`
-	EndTime     string        `json:"end_time"`
+	ID          string         `json:"id"`
+	Title       string         `json:"title"`
+	Description string         `json:"description"`
+	StartTime   string         `json:"start_time"`
+	EndTime     string         `json:"end_time"`
 	Exercises   []hevyExercise `json:"exercises"`
 }
 
@@ -83,12 +82,12 @@ type hevyExercise struct {
 }
 
 type hevySet struct {
-	Type             string   `json:"type"`
-	WeightKg         *float64 `json:"weight_kg"`
-	Reps             *int     `json:"reps"`
-	DistanceMeters   *float64 `json:"distance_meters"`
-	DurationSeconds  *int     `json:"duration_seconds"`
-	RPE              *float64 `json:"rpe"`
+	Type            string   `json:"type"`
+	WeightKg        *float64 `json:"weight_kg"`
+	Reps            *int     `json:"reps"`
+	DistanceMeters  *float64 `json:"distance_meters"`
+	DurationSeconds *int     `json:"duration_seconds"`
+	RPE             *float64 `json:"rpe"`
 }
 
 type hevyAPIError struct {
@@ -125,15 +124,18 @@ func buildWorkoutEmbed(w hevyWorkout) discordEmbed {
 	if title == "" {
 		title = "Workout logged"
 	}
+	var exerciseLines []string
+	for _, ex := range w.Exercises {
+		setCount := len(ex.Sets)
+		if setCount > 0 {
+			exerciseLines = append(exerciseLines, fmt.Sprintf("%d× %s", setCount, ex.Title))
+		}
+	}
 	fields := []discordField{
 		{Name: "Duration", Value: formatDuration(w.StartTime, w.EndTime), Inline: true},
 	}
-	for _, ex := range w.Exercises {
-		value := formatSets(ex.Sets)
-		if value == "" {
-			value = "—"
-		}
-		fields = append(fields, discordField{Name: ex.Title, Value: value, Inline: false})
+	if len(exerciseLines) > 0 {
+		fields = append(fields, discordField{Name: "Exercises", Value: strings.Join(exerciseLines, "\n"), Inline: false})
 	}
 	return discordEmbed{
 		Title:       title,
@@ -159,27 +161,6 @@ func formatDuration(start, end string) string {
 		return "< 1 min"
 	}
 	return fmt.Sprintf("%.0f min", d.Minutes())
-}
-
-const kgToLbs = 2.2046226218
-
-func formatSets(sets []hevySet) string {
-	var lines []string
-	for _, s := range sets {
-		switch {
-		case s.WeightKg != nil && s.Reps != nil:
-			lines = append(lines, fmt.Sprintf("%.0f lbs × %d", math.Round(*s.WeightKg*kgToLbs), *s.Reps))
-		case s.Reps != nil:
-			lines = append(lines, fmt.Sprintf("%d reps", *s.Reps))
-		case s.DistanceMeters != nil:
-			lines = append(lines, fmt.Sprintf("%.0f m", *s.DistanceMeters))
-		case s.DurationSeconds != nil:
-			lines = append(lines, fmt.Sprintf("%d s", *s.DurationSeconds))
-		default:
-			lines = append(lines, "—")
-		}
-	}
-	return strings.Join(lines, "\n")
 }
 
 func sendDiscordWebhook(webhookURL string, embed discordEmbed) error {
