@@ -1,6 +1,6 @@
 services:
   hevy-to-discord:
-    build: .
+    image: ghcr.io/alexgaudon/hevy-to-discord:latest
     ports:
       - "8080:8080"
     env_file:
